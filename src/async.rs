@@ -14,16 +14,20 @@ use tty;
 /// asyncronized from piped input would rarely make sense. In other words, if you pipe standard
 /// output from another process, it won't be reflected in the stream returned by this function, as
 /// this represents the TTY device, and not the piped standard input.
-pub fn async_stdin() -> AsyncReader {
+pub fn async_stdin() -> io::Result<AsyncReader> {
     let (send, recv) = mpsc::channel();
 
-    thread::spawn(move || for i in tty::get_tty().unwrap().bytes() {
-                      if send.send(i).is_err() {
-                          return;
-                      }
-                  });
-
-    AsyncReader { recv: recv }
+    match tty::get_tty() {
+        Ok(the_tty) => {
+            thread::spawn(move || for i in the_tty.bytes() {
+                if send.send(i).is_err() {
+                    return;
+                }
+            });
+            Ok(AsyncReader { recv: recv })
+        },
+        Err(e) => Err(e),
+    }
 }
 
 /// An asynchronous reader.

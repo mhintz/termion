@@ -185,9 +185,10 @@ pub trait DetectColors {
 
 impl<W: Write> DetectColors for W {
     fn available_colors(&mut self) -> io::Result<u16> {
-        let mut stdin = async_stdin();
+        let stdin_res = async_stdin();
 
-        if detect_color(self, &mut stdin, 0)? {
+        stdin_res.and_then(|mut stdin| {
+          if detect_color(self, &mut stdin, 0)? {
             // OSC 4 is supported, detect how many colors there are.
             // Do a binary search of the last supported color.
             let mut min = 8;
@@ -202,7 +203,7 @@ impl<W: Write> DetectColors for W {
                 }
             }
             Ok(max)
-        } else {
+          } else {
             // OSC 4 is not supported, trust TERM contents.
             Ok(match env::var_os("TERM") {
                    Some(val) => {
@@ -214,7 +215,8 @@ impl<W: Write> DetectColors for W {
                    }
                    None => 8,
                })
-        }
+          }
+        })
     }
 }
 
